@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+usage() {
+  cat <<EOF
+Interactively change the current Azure subscription.
+
+Usage:
+  azsub [-l]
+
+Examples:
+  # Interactively change the current Azure subscription
+  azsub
+
+  # List all subscriptions (indicating current subscription with a '*')
+  azsub -l
+
+Flags:
+  -l          List all available subscriptions
+  -h, --help  Show this help message
+EOF
+}
+
+fzf_missing() {
+  cat <<EOF
+You must install fzf to use this plugin:
+
+    https://github.com/junegunn/fzf
+
+INSTALLATION
+
+Homebrew (macOS) and Linuxbrew (Linux):
+    brew install fzf
+
+From source (macOS, Linux):
+    git clone https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install
+
+Other installation options:
+    https://github.com/junegunn/fzf#installation
+EOF
+}
+
+list_subscriptions() {
+  c=$(az account show --output tsv --query 'name' 2>/dev/null)
+  az account list --output tsv --query '[].name' | sed "s/^/  /;\|^  $c$|s/ /*/"
+}
+
+set_subscription() {
+  which fzf >/dev/null || { fzf_missing; exit 1; }
+  local c=$(list_subscriptions | fzf -e | sed 's/^..//')
+  if [[ -z "$c" ]]; then
+    echo "Aborted. Nothing has been changed."
+  else
+    az account set --subscription "$c"
+  fi
+}
+
+if [[ -z "$1" ]]; then
+  set_subscription
+elif [[ "$1" = -l ]]; then
+  list_subscriptions
+else
+  usage
+fi
